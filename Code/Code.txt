@@ -1,0 +1,170 @@
+# 💧 Water Potability Prediction – Full Notebook
+
+# -----------------------------
+# 🔹 1. Import Libraries
+# -----------------------------
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+
+from imblearn.over_sampling import SMOTE
+
+import warnings
+warnings.filterwarnings("ignore")
+
+# -----------------------------
+# 🔹 2. Load Dataset
+# -----------------------------
+df = pd.read_csv("water_potability.csv")
+df.head()
+
+
+# -----------------------------
+# 🔹 3. Explore Dataset
+# -----------------------------
+df.info()
+df.describe()
+df.isnull().sum()
+
+# -----------------------------
+# 🔹 4. Handle Missing Values
+# -----------------------------
+df.fillna(df.median(), inplace=True)
+df.isnull().sum()
+
+# -----------------------------
+# 🔹 5. Target Variable Distribution
+# -----------------------------
+sns.countplot(x='Potability', data=df)
+plt.title("Class Distribution")
+plt.show()
+
+
+# -----------------------------
+# 🔹 6. Correlation Heatmap
+# -----------------------------
+plt.figure(figsize=(10,6))
+sns.heatmap(df.corr(), annot=True, cmap='coolwarm')
+plt.title("Feature Correlation Heatmap")
+plt.show()
+
+# -----------------------------
+# 🔹 7. Feature & Target Separation
+# -----------------------------
+X = df.drop('Potability', axis=1)
+y = df['Potability']
+
+# -----------------------------
+# 🔹 8. Feature Scaling
+# -----------------------------
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# -----------------------------
+# 🔹 9. Handle Class Imbalance (SMOTE)
+# -----------------------------
+smote = SMOTE(random_state=42)
+X_resampled, y_resampled = smote.fit_resample(X_scaled, y)
+pd.Series(y_resampled).value_counts()
+
+# -----------------------------
+# 🔹 10. Train-Test Split
+# -----------------------------
+X_train, X_test, y_train, y_test = train_test_split(
+    X_resampled,
+    y_resampled,
+    test_size=0.2,
+    random_state=42
+)
+
+# -----------------------------
+# 🔹 11. Model Training & Initial Evaluation
+# -----------------------------
+models = {
+    "Logistic Regression": LogisticRegression(),
+    "KNN": KNeighborsClassifier(),
+    "Decision Tree": DecisionTreeClassifier(random_state=42),
+    "Random Forest": RandomForestClassifier(random_state=42),
+    "SVM": SVC(probability=True)
+}
+
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    preds = model.predict(X_test)
+    print(f"\n{name}")
+    print(classification_report(y_test, preds))
+
+# -----------------------------
+# 🔹 12. Random Forest Hyperparameter Tuning
+# -----------------------------
+param_grid = {
+    'n_estimators': [100, 200],
+    'max_depth': [None, 10, 20]
+}
+
+grid = GridSearchCV(
+    RandomForestClassifier(random_state=42),
+    param_grid,
+    cv=5,
+    scoring='f1',
+    n_jobs=-1
+)
+
+grid.fit(X_train, y_train)
+best_model = grid.best_estimator_
+print("Best Parameters:", grid.best_params_)
+
+# -----------------------------
+# 🔹 13. Best Model Evaluation
+# -----------------------------
+y_pred = best_model.predict(X_test)
+y_prob = best_model.predict_proba(X_test)[:, 1]
+
+print(classification_report(y_test, y_pred))
+
+# -----------------------------
+# 🔹 14. Confusion Matrix
+# -----------------------------
+cm = confusion_matrix(y_test, y_pred)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+plt.show()
+
+# -----------------------------
+# 🔹 15. ROC Curve & AUC Score
+# -----------------------------
+roc_auc = roc_auc_score(y_test, y_prob)
+fpr, tpr, _ = roc_curve(y_test, y_prob)
+
+plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.2f}")
+plt.plot([0,1], [0,1], linestyle='--')
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve")
+plt.legend()
+plt.show()
+
+# -----------------------------
+# 🔹 16. Feature Importance
+# -----------------------------
+feature_importance = pd.Series(
+    best_model.feature_importances_,
+    index=X.columns
+)
+
+feature_importance.sort_values().plot(kind='barh', figsize=(8,6))
+plt.title("Feature Importance")
+plt.show()

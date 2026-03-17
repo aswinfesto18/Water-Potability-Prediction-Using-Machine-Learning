@@ -1,0 +1,1 @@
+https://water-potability-prediction-app.streamlit.app

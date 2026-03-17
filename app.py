@@ -23,11 +23,9 @@ Input the water parameters below and click **Predict** to determine if water is 
 """)
 
 # Load Data
-
 @st.cache_data
 def load_data():
-    df = pd.read_csv(r"D:\Resume Project\Projects\Water Potability Prediction Using Machine Learning\water_potability.csv")
-    return df
+    return pd.read_csv("water_potability.csv")
 
 df = load_data()
 
